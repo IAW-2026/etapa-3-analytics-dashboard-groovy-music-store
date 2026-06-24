@@ -33,10 +33,20 @@ export type TopProducto = {
 // === Contratos de los /api/analytics/resumen de cada app ===
 
 export type ResumenShipping = {
-  totalEnvios: number;
-  porEstado: Record<string, number>;
-  tiempoPromedioEntregaDias: number;
-  porcentajeEntregadosATiempo: number;
+  total: number;
+  porEstado: {
+    enPreparacion: number;
+    enCamino: number;
+    entregados: number;
+  };
+  demorados: number;
+  tiempoPromedioHoras: number;
+  porcentajeEntregados: number;
+  enviosPorEmpresa: {
+    empresaId: string;
+    nombre: string;
+    total: number;
+  }[];
 };
 
 export type ResumenSeller = {
@@ -48,17 +58,29 @@ export type ResumenSeller = {
 
 export type ResumenPayments = {
   volumenTotal: number;
-  porcentajeAprobados: number;
-  porcentajeRechazados: number;
-  fondosRetenidos: number;
-  fondosLiberados: number;
+  totalTransacciones: number;
+  transacciones: {
+    pendientes: number;
+    aprobadas: number;
+    rechazadas: number;
+    reembolsadas: number;
+  };
+  porcentajes: {
+    aprobadas: number;
+    rechazadas: number;
+  };
+  fondos: {
+    retenidos: number;
+    liberados: number;
+  };
 };
 
 export type ResumenBuyer = {
-  totalOrdenes: number;
-  porEstado: Record<string, number>;
-  ticketPromedio: number;
-  usuariosActivos: number;
+  total_ordenes: number;
+  ingresos_totales: number;
+  ticket_promedio: number;
+  usuarios_activos: number;
+  desglose_estados: Record<string, number>;
 };
 
 // Punto de serie diaria genérico (cada app devuelve algo así)
