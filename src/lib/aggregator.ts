@@ -8,16 +8,13 @@ import type {
   DistribucionEstado,
   TopProducto,
   ResumenShipping,
-  ResumenSeller,
-  ResumenPayments,
-  ResumenBuyer,
   PuntoDiario,
 } from "./types";
 
-function rangoUltimos30Dias(): { desde: string; hasta: string } {
+function rangoPorDefecto(): { desde: string; hasta: string } {
   const hasta = new Date();
   const desde = new Date();
-  desde.setDate(desde.getDate() - 29);
+  desde.setFullYear(desde.getFullYear() - 1);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   return { desde: fmt(desde), hasta: fmt(hasta) };
 }
@@ -54,7 +51,7 @@ export type DatosHome = {
 };
 
 export async function obtenerDatosHome(): Promise<DatosHome> {
-  const { desde, hasta } = rangoUltimos30Dias();
+  const { desde, hasta } = rangoPorDefecto();
 
   const [rShipping, rSeller, rPayments, rBuyer, rSeriePayments, rSerieBuyer] =
     await Promise.allSettled([
@@ -66,16 +63,20 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       buyerClient.porDia(desde, hasta),
     ]);
 
+  // Los datos pueden venir wrapeados en { datos: ... } o directo
   const shipping = ok<ResumenShipping>(rShipping);
-  const seller = ok<ResumenSeller>(rSeller);
-  const payments = ok<ResumenPayments>(rPayments);
-  const buyer = ok<ResumenBuyer>(rBuyer);
-  const seriePayments = ok<PuntoDiario[]>(rSeriePayments);
-  const serieBuyer = ok<PuntoDiario[]>(rSerieBuyer);
+  const sellerRaw = ok<any>(rSeller);
+  const paymentsRaw = ok<any>(rPayments);
+  const buyerRaw = ok<any>(rBuyer);
+  const seriePaymentsRaw = ok<any>(rSeriePayments);
+  const serieBuyerRaw = ok<any>(rSerieBuyer);
 
-  // Debug
-  console.log("[aggregator] shipping error:", rShipping.status === "rejected" ? rShipping.reason : "ok");
-  console.log("[aggregator] seller error:", rSeller.status === "rejected" ? rSeller.reason : "ok");
+  // Desenvolver si viene en { datos: ... }
+  const seller = sellerRaw?.datos ?? sellerRaw;
+  const payments = paymentsRaw?.datos ?? paymentsRaw;
+  const buyer = buyerRaw?.datos ?? buyerRaw;
+  const seriePaymentsArr: any[] = seriePaymentsRaw?.datos ?? (Array.isArray(seriePaymentsRaw) ? seriePaymentsRaw : []);
+  const serieBuyerArr: any[] = serieBuyerRaw?.datos ?? (Array.isArray(serieBuyerRaw) ? serieBuyerRaw : []);
 
   const errores: string[] = [];
   if (!shipping) errores.push("shipping");
@@ -96,23 +97,23 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
     },
     {
       titulo: "Órdenes totales",
-      valor: fmtNum(buyer?.total_ordenes),
+      valor: fmtNum(buyer?.total_ordenes ?? buyer?.totalOrdenes),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: buyer?.usuarios_activos != null
-        ? `${fmtNum(buyer.usuarios_activos)} usuarios activos`
+      subtitulo: (buyer?.usuarios_activos ?? buyer?.usuariosActivos) != null
+        ? `${fmtNum(buyer.usuarios_activos ?? buyer.usuariosActivos)} usuarios activos`
         : "sin datos",
     },
     {
       titulo: "Ticket promedio",
-      valor: fmtMoneda(buyer?.ticket_promedio),
+      valor: fmtMoneda(buyer?.ticket_promedio ?? buyer?.ticketPromedio),
       variacion: 0,
       tendencia: "flat",
       subtitulo: payments?.porcentajes?.aprobadas != null
         ? `${fmtPct(payments.porcentajes.aprobadas)} pagos aprobados`
         : undefined,
     },
-{
+    {
       titulo: "Envíos entregados",
       valor: fmtPct(shipping?.porcentajeEntregados),
       variacion: 0,
@@ -123,23 +124,33 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
     },
   ];
 
-  // === Serie de ingresos ===
+  // === Serie de ingresos diarios ===
   const fmtFecha = (iso: string) => {
     const d = new Date(iso);
     return `${String(d.getDate()).padStart(2, "0")} ${d.toLocaleString("es-AR", { month: "short" })}`;
   };
 
   let serieIngresos: PuntoSerie[] = [];
-  if (seriePayments && seriePayments.length > 0) {
-    serieIngresos = seriePayments.map((p) => ({
-      fecha: fmtFecha(p.fecha),
-      ingresos: p.monto ?? p.cantidad,
-    }));
-  } else if (serieBuyer && buyer?.ticket_promedio != null) {
-    serieIngresos = serieBuyer.map((p) => ({
-      fecha: fmtFecha(p.fecha),
-      ingresos: p.cantidad * buyer.ticket_promedio,
-    }));
+
+  if (seriePaymentsArr.length > 0) {
+    // Payments usa "dia" y tiene columnas por estado (pagado, acreditado, etc.)
+    serieIngresos = seriePaymentsArr.map((p: any) => {
+      const fecha = p.fecha ?? p.dia;
+      const total = (p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0);
+      return {
+        fecha: fmtFecha(fecha),
+        ingresos: total,
+      };
+    });
+  } else if (serieBuyerArr.length > 0) {
+    // Buyer puede usar ingresos o volumen_transacciones
+    serieIngresos = serieBuyerArr.map((p: any) => {
+      const fecha = p.fecha ?? p.dia;
+      return {
+        fecha: fmtFecha(fecha),
+        ingresos: p.ingresos ?? p.volumen_transacciones ?? p.cantidad ?? 0,
+      };
+    });
   }
 
   // === Envíos por estado ===
@@ -151,7 +162,7 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       ]
     : [];
 
-  // === Pagos por estado (ahora con datos reales de payments.transacciones) ===
+  // === Pagos por estado ===
   const pagosPorEstado: DistribucionEstado[] = payments?.transacciones
     ? [
         { estado: "Aprobadas", cantidad: payments.transacciones.aprobadas ?? 0 },
@@ -161,9 +172,20 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       ]
     : [];
 
-  // === Top productos ===
-  const topProductos: TopProducto[] = seller?.topProductos ?? [];
-
+  // === Top productos (Seller usa snake_case y campos distintos) ===
+  const topProductosRaw: any[] = seller?.top_productos ?? seller?.topProductos ?? [];
+  const topProductos: TopProducto[] = topProductosRaw.map((p: any) => ({
+    titulo: p.titulo ?? p.nombre ?? "—",
+    artista: p.artista ?? "—",
+    ventas: p.unidades_vendidas ?? p.ventas ?? 0,
+    ingresos: p.ingresos ?? 0,
+  }));
+  console.log("[aggregator] rSerieBuyer:", JSON.stringify(rSerieBuyer));
+  /*
+  console.log("[aggregator] TODOS LOS DATOS:", JSON.stringify({
+    shipping, seller, payments, buyer, seriePaymentsArr, serieBuyerArr,
+  }, null, 2));
+*/
   return {
     metricas,
     serieIngresos,

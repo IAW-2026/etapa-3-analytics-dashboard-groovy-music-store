@@ -84,13 +84,13 @@ export default async function Home() {
             titulo="Envíos por estado"
             subtitulo={`Total: ${datos.enviosPorEstado.reduce((a, b) => a + b.cantidad, 0).toLocaleString("es-AR")}`}
             datos={datos.enviosPorEstado}
-            color="#B0431D"
+            color="var(--primary)"
           />
           <GraficoBarras
             titulo="Pagos por estado"
             subtitulo={`Total: ${datos.pagosPorEstado.reduce((a, b) => a + b.cantidad, 0).toLocaleString("es-AR")}`}
             datos={datos.pagosPorEstado}
-            color="#2D2B2A"
+            color="var(--secondary)"
           />
         </div>
       </div>

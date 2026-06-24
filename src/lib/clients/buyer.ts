@@ -8,9 +8,9 @@ export const buyerClient = {
     fetchServicio<ResumenBuyer>("buyer", `${BASE}/api/analytics/resumen`),
 
   porDia: (desde: string, hasta: string) =>
-    fetchServicio<PuntoDiario[]>(
+    fetchServicio<any[]>(
       "buyer",
-      `${BASE}/api/analytics/ordenes-por-dia?desde=${desde}&hasta=${hasta}`
+      `${BASE}/api/analytics/orders/time-series?fecha_desde=${desde}&fecha_hasta=${hasta}&intervalo=dia`
     ),
 
   listado: (params: URLSearchParams) =>
