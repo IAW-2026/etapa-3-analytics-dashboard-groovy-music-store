@@ -1,65 +1,99 @@
-import Image from "next/image";
+import TarjetaMetrica from "@/components/TarjetaMetrica";
+import GraficoIngresos from "@/components/GraficoIngresos";
+import GraficoBarras from "@/components/GraficoBarras";
+import TopProductos from "@/components/TopProductos";
+import { obtenerDatosHome } from "@/lib/aggregator";
 
-export default function Home() {
+// Revalida cada 60s
+export const revalidate = 60;
+
+export default async function Home() {
+  const datos = await obtenerDatosHome();
+
+  const ahora = new Date().toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-[var(--background)]">
+      <header className="bg-[var(--secondary)] text-[var(--secondary-foreground)]">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-md bg-[var(--primary)] flex items-center justify-center font-[family-name:var(--font-syne)] font-bold text-sm">
+              G
+            </div>
+            <span className="font-[family-name:var(--font-syne)] font-semibold tracking-tight">
+              Groovy Analytics
+            </span>
+          </div>
+          <nav className="flex items-center gap-6 text-sm">
+            <a href="/" className="text-[var(--primary)] font-medium">Resumen</a>
+            <a href="/ordenes" className="hover:text-[var(--primary)] transition-colors">Órdenes</a>
+            <a href="/ventas" className="hover:text-[var(--primary)] transition-colors">Ventas</a>
+            <a href="/pagos" className="hover:text-[var(--primary)] transition-colors">Pagos</a>
+            <a href="/envios" className="hover:text-[var(--primary)] transition-colors">Envíos</a>
+          </nav>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="flex items-end justify-between mb-10">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--primary)] font-[family-name:var(--font-syne)] font-medium mb-2">
+              Dashboard
+            </p>
+            <h1 className="text-4xl font-[family-name:var(--font-cormorant)] font-light tracking-tight">
+              Resumen general
+            </h1>
+            <p className="text-sm text-[var(--muted-foreground)] mt-2">
+              Vista consolidada del ecosistema · Actualizado {ahora}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            En vivo
+          </span>
         </div>
-      </main>
-    </div>
+
+        {/* Aviso si alguna app falló */}
+        {datos.errores.length > 0 && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            ⚠ No se pudo obtener datos de: <strong>{datos.errores.join(", ")}</strong>. El resto del dashboard sigue funcionando.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {datos.metricas.map((m) => (
+            <TarjetaMetrica key={m.titulo} metrica={m} />
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <div className="lg:col-span-2">
+            <GraficoIngresos datos={datos.serieIngresos} />
+          </div>
+          <TopProductos productos={datos.topProductos} />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <GraficoBarras
+            titulo="Envíos por estado"
+            subtitulo={`Total: ${datos.enviosPorEstado.reduce((a, b) => a + b.cantidad, 0).toLocaleString("es-AR")}`}
+            datos={datos.enviosPorEstado}
+            color="#B0431D"
+          />
+          <GraficoBarras
+            titulo="Pagos por estado"
+            subtitulo={`Total: ${datos.pagosPorEstado.reduce((a, b) => a + b.cantidad, 0).toLocaleString("es-AR")}`}
+            datos={datos.pagosPorEstado}
+            color="#2D2B2A"
+          />
+        </div>
+      </div>
+    </main>
   );
 }
