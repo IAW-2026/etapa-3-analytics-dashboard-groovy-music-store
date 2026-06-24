@@ -8,6 +8,10 @@ import type { Metrica, DistribucionEstado } from "@/lib/types";
 
 const num = (v: unknown): number | null =>
   typeof v === "number" && !isNaN(v) ? v : null;
+const fmtMoneda = (v: unknown) => {
+  const n = num(v);
+  return n === null ? "—" : `$${n.toLocaleString("es-AR")}`;
+};
 const fmtNum = (v: unknown) => {
   const n = num(v);
   return n === null ? "—" : n.toLocaleString("es-AR");
@@ -17,71 +21,80 @@ const fmtPct = (v: unknown) => {
   return n === null ? "—" : `${n.toFixed(1)}%`;
 };
 
-type DatosEnvios = {
+type DatosPagos = {
   resumen: any;
-  serieDatos: any[];
+  serieArr: any[];
 };
 
-export default function EnviosPage() {
-  const { datos, cargando, ultimaActualizacion } = usePolling<DatosEnvios>(
-    "/api/datos-envios",
+export default function PagosPage() {
+  const { datos, cargando, ultimaActualizacion } = usePolling<DatosPagos>(
+    "/api/datos-pagos",
     30000
   );
 
   const resumen = datos?.resumen;
-  const serieDatos = datos?.serieDatos ?? [];
+  const serieArr = datos?.serieArr ?? [];
 
-  const serieFormateada = serieDatos.map((p: any) => {
-    const d = new Date(p.fecha);
+  const serieFormateada = serieArr.map((p: any) => {
+    const fecha = p.fecha ?? p.dia;
+    const d = new Date(fecha);
+    const total = (p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0) + (p.fallido ?? 0) + (p.reembolsado ?? 0);
     return {
       fecha: `${String(d.getDate()).padStart(2, "0")} ${d.toLocaleString("es-AR", { month: "short" })}`,
-      cantidad: p.cantidad ?? 0,
+      cantidad: total,
     };
   });
 
   const metricas: Metrica[] = [
     {
-      titulo: "Total envíos",
-      valor: fmtNum(resumen?.total),
+      titulo: "Volumen transado",
+      valor: fmtMoneda(resumen?.volumenTotal),
       variacion: 0,
       tendencia: "flat",
+      subtitulo: resumen?.totalTransacciones != null
+        ? `${resumen.totalTransacciones} transacciones`
+        : "sin datos",
     },
     {
-      titulo: "Entregados",
-      valor: fmtPct(resumen?.porcentajeEntregados),
+      titulo: "Tasa de aprobación",
+      valor: fmtPct(resumen?.porcentajes?.aprobadas),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: resumen?.porEstado
-        ? `${resumen.porEstado.entregados ?? 0} de ${resumen.total ?? 0}`
+      subtitulo: resumen?.porcentajes?.rechazadas != null
+        ? `${fmtPct(resumen.porcentajes.rechazadas)} rechazadas`
         : undefined,
     },
     {
-      titulo: "Tiempo promedio",
-      valor: resumen?.tiempoPromedioHoras != null ? `${resumen.tiempoPromedioHoras}hs` : "—",
+      titulo: "Fondos retenidos",
+      valor: fmtMoneda(resumen?.fondos?.retenidos),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: "desde creación a entrega",
+      subtitulo: "pendientes de liberación",
     },
     {
-      titulo: "Demorados",
-      valor: fmtNum(resumen?.demorados),
+      titulo: "Fondos liberados",
+      valor: fmtMoneda(resumen?.fondos?.liberados),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: "pasaron fecha estimada",
+      subtitulo: "acreditados a vendedores",
     },
   ];
 
-  const porEstado: DistribucionEstado[] = resumen?.porEstado
+  const porEstado: DistribucionEstado[] = resumen?.transacciones
     ? [
-        { estado: "En preparación", cantidad: resumen.porEstado.enPreparacion ?? 0 },
-        { estado: "En camino", cantidad: resumen.porEstado.enCamino ?? 0 },
-        { estado: "Entregados", cantidad: resumen.porEstado.entregados ?? 0 },
+        { estado: "Aprobadas", cantidad: resumen.transacciones.aprobadas ?? 0 },
+        { estado: "Pendientes", cantidad: resumen.transacciones.pendientes ?? 0 },
+        { estado: "Rechazadas", cantidad: resumen.transacciones.rechazadas ?? 0 },
+        { estado: "Reembolsadas", cantidad: resumen.transacciones.reembolsadas ?? 0 },
       ]
     : [];
 
-  const porEmpresa: DistribucionEstado[] = (resumen?.enviosPorEmpresa ?? []).map(
-    (e: any) => ({ estado: e.nombre, cantidad: e.total })
-  );
+  const fondos: DistribucionEstado[] = resumen?.fondos
+    ? [
+        { estado: "Retenidos", cantidad: Math.round(resumen.fondos.retenidos ?? 0) },
+        { estado: "Liberados", cantidad: Math.round(resumen.fondos.liberados ?? 0) },
+      ]
+    : [];
 
   return (
     <main className="min-h-screen bg-background">
@@ -97,18 +110,18 @@ export default function EnviosPage() {
             <a href="/" className="hover:text-primary transition-colors">Resumen</a>
             <a href="/ordenes" className="hover:text-primary transition-colors">Órdenes</a>
             <a href="/ventas" className="hover:text-primary transition-colors">Ventas</a>
-            <a href="/pagos" className="hover:text-primary transition-colors">Pagos</a>
-            <a href="/envios" className="text-primary font-medium">Envíos</a>
+            <a href="/pagos" className="text-primary font-medium">Pagos</a>
+            <a href="/envios" className="hover:text-primary transition-colors">Envíos</a>
           </nav>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="mb-10">
-          <p className="text-xs uppercase tracking-[0.2em] text-primary font-display font-medium mb-2">Shipping</p>
-          <h1 className="text-4xl font-serif font-light tracking-tight">Análisis de envíos</h1>
+          <p className="text-xs uppercase tracking-[0.2em] text-primary font-display font-medium mb-2">Payments</p>
+          <h1 className="text-4xl font-serif font-light tracking-tight">Análisis de pagos</h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Métricas y detalle del servicio de logística · Actualizado {ultimaActualizacion || "cargando..."}
+            Métricas financieras y estado de transacciones · Actualizado {ultimaActualizacion || "cargando..."}
           </p>
         </div>
 
@@ -126,28 +139,28 @@ export default function EnviosPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               <GraficoLineas
-                titulo="Envíos por día"
+                titulo="Transacciones por día"
                 subtitulo="Últimos 30 días"
                 datos={serieFormateada}
-                labelY="Envíos"
+                labelY="Transacciones"
               />
               <GraficoDonut
                 titulo="Distribución por estado"
-                subtitulo={`Total: ${fmtNum(resumen?.total)}`}
+                subtitulo={`Total: ${fmtNum(resumen?.totalTransacciones)}`}
                 datos={porEstado}
               />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <GraficoBarras
-                titulo="Envíos por empresa"
-                subtitulo="Distribución entre operadores logísticos"
-                datos={porEmpresa}
+                titulo="Estado de fondos"
+                subtitulo="Retenidos vs liberados (en pesos)"
+                datos={fondos}
                 color="var(--secondary)"
               />
               <GraficoBarras
-                titulo="Envíos por estado"
-                subtitulo={`Total: ${fmtNum(resumen?.total)}`}
+                titulo="Transacciones por estado"
+                subtitulo={`Total: ${fmtNum(resumen?.totalTransacciones)}`}
                 datos={porEstado}
               />
             </div>
