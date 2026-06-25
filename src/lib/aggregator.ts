@@ -53,7 +53,7 @@ export type DatosHome = {
 export async function obtenerDatosHome(): Promise<DatosHome> {
   const { desde, hasta } = rangoPorDefecto();
 
-  const [rShipping, rSeller, rPayments, rBuyer, rSeriePayments, rSerieBuyer] =
+  const [rShipping, rSeller, rPayments, rBuyer, rSeriePayments, rSerieBuyer, rProductos] =
     await Promise.allSettled([
       shippingClient.resumen(),
       sellerClient.resumen(),
@@ -61,6 +61,7 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       buyerClient.resumen(),
       paymentsClient.porDia(desde, hasta),
       buyerClient.porDia(desde, hasta),
+      sellerClient.productos(),
     ]);
 
   // Los datos pueden venir wrapeados en { datos: ... } o directo
@@ -70,6 +71,7 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
   const buyerRaw = ok<any>(rBuyer);
   const seriePaymentsRaw = ok<any>(rSeriePayments);
   const serieBuyerRaw = ok<any>(rSerieBuyer);
+  const productosRaw = ok<any>(rProductos);
 
   // Desenvolver si viene en { datos: ... }
   const seller = sellerRaw?.datos ?? sellerRaw;
@@ -77,6 +79,15 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
   const buyer = buyerRaw?.datos ?? buyerRaw;
   const seriePaymentsArr: any[] = seriePaymentsRaw?.datos ?? (Array.isArray(seriePaymentsRaw) ? seriePaymentsRaw : []);
   const serieBuyerArr: any[] = serieBuyerRaw?.datos ?? (Array.isArray(serieBuyerRaw) ? serieBuyerRaw : []);
+
+  // Mapa de precios reales desde GET /api/products
+  const productosArr: any[] = productosRaw?.datos ?? (Array.isArray(productosRaw) ? productosRaw : []);
+  const preciosPorId: Record<string, number> = {};
+  for (const p of productosArr) {
+    if (p.id && typeof p.precio === "number") {
+      preciosPorId[p.id] = p.precio;
+    }
+  }
 
   const errores: string[] = [];
   if (!shipping) errores.push("shipping");
@@ -181,18 +192,16 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
     ];
   }
 
-  // === Top productos (Seller usa snake_case y campos distintos) ===
+  // === Top productos: cruzar IDs con catálogo real para precios ===
   const topProductosRaw: any[] = seller?.top_productos ?? seller?.topProductos ?? [];
-  const precioPromedio = (seller?.total_ventas ?? seller?.totalVentas) > 0
-    ? (seller?.ingresos_brutos ?? seller?.ingresosBrutos ?? 0) / (seller?.total_ventas ?? seller?.totalVentas ?? 1)
-    : 0;
   const topProductos: TopProducto[] = topProductosRaw.map((p: any) => {
     const ventas = p.unidades_vendidas ?? p.ventas ?? 0;
+    const precioReal = p.id ? preciosPorId[p.id] : undefined;
     return {
       titulo: p.titulo ?? p.nombre ?? "—",
       artista: p.artista ?? "—",
       ventas,
-      ingresos: p.ingresos ?? Math.round(ventas * precioPromedio),
+      ingresos: p.ingresos ?? (precioReal != null ? ventas * precioReal : 0),
     };
   });
   console.log("[aggregator] DATOS CRUDOS:", JSON.stringify({
@@ -202,6 +211,8 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
     rBuyer: rBuyer.status === "fulfilled" ? rBuyer.value : rBuyer.reason?.message,
     rSeriePayments: rSeriePayments.status === "fulfilled" ? rSeriePayments.value : rSeriePayments.reason?.message,
     rSerieBuyer: rSerieBuyer.status === "fulfilled" ? rSerieBuyer.value : rSerieBuyer.reason?.message,
+    rProductos: rProductos.status === "fulfilled" ? `${productosArr.length} productos` : rProductos.reason?.message,
+    preciosCruzados: topProductos.map(p => `${p.titulo}: ${p.ventas}u × $${p.ingresos / (p.ventas || 1)} = $${p.ingresos}`),
   }, null, 2));
   /*
   console.log("[aggregator] TODOS LOS DATOS:", JSON.stringify({

@@ -13,6 +13,10 @@ export const sellerClient = {
       `${BASE}/api/analytics/ventas-por-dia?desde=${desde}&hasta=${hasta}`
     ),
 
+  // Catálogo completo con precios (para cruzar con top productos)
+  productos: () =>
+    fetchServicio<any>("seller", `${BASE}/api/products?limite=100`),
+
   listado: (params: URLSearchParams) =>
     fetchServicio<unknown>("seller", `${BASE}/api/products?${params}`),
 };
