@@ -10,7 +10,7 @@ const num = (v: unknown): number | null =>
   typeof v === "number" && !isNaN(v) ? v : null;
 const fmtMoneda = (v: unknown) => {
   const n = num(v);
-  return n === null ? "—" : `$${n.toLocaleString("es-AR")}`;
+  return n === null ? "—" : `$${Math.round(n).toLocaleString("es-AR")}`;
 };
 const fmtNum = (v: unknown) => {
   const n = num(v);
@@ -48,12 +48,12 @@ export default function OrdenesPage() {
 
   const serieOrdenes = serieArr.map((p: any) => ({
     fecha: fmtFecha(p.fecha ?? p.dia),
-    cantidad: p.cantidad ?? p.ordenes ?? p.total ?? 0,
+    cantidad: p.cantidad ?? p.ordenes ?? p.total ?? p.volumen_transacciones ?? 0,
   }));
 
   const serieIngresos = serieArr.map((p: any) => ({
     fecha: fmtFecha(p.fecha ?? p.dia),
-    cantidad: p.ingresos ?? p.monto ?? p.volumen_transacciones ?? 0,
+    cantidad: Math.round(p.ingresos ?? p.monto ?? p.volumen_transacciones ?? 0),
   }));
 
   const metricas: Metrica[] = [

@@ -9,7 +9,7 @@ const num = (v: unknown): number | null =>
   typeof v === "number" && !isNaN(v) ? v : null;
 const fmtMoneda = (v: unknown) => {
   const n = num(v);
-  return n === null ? "—" : `$${n.toLocaleString("es-AR")}`;
+  return n === null ? "—" : `$${Math.round(n).toLocaleString("es-AR")}`;
 };
 const fmtNum = (v: unknown) => {
   const n = num(v);

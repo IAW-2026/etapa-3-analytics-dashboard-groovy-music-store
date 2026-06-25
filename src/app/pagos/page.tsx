@@ -38,8 +38,7 @@ export default function PagosPage() {
   const serieFormateada = serieArr.map((p: any) => {
     const fecha = p.fecha ?? p.dia;
     const d = new Date(fecha);
-    const total = p.monto ?? (((p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0) + (p.fallido ?? 0) + (p.reembolsado ?? 0)) || (p.cantidad ?? 0));
-    return {
+    const total = p.monto ?? (((p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0) + (p.fallido ?? 0) + (p.reembolsado ?? 0)) || (p.cantidad ?? 0));    return {
       fecha: `${String(d.getDate()).padStart(2, "0")} ${d.toLocaleString("es-AR", { month: "short" })}`,
       cantidad: Math.round(total),
     };
@@ -170,7 +169,7 @@ export default function PagosPage() {
                 color="var(--secondary)"
               />
               <GraficoBarras
-                titulo="Porcentaje de pagos aprobados"
+                titulo="Transacciones por estado"
                 subtitulo={resumen?.totalTransacciones
                   ? `Total: ${fmtNum(resumen.totalTransacciones)}`
                   : `${resumen?.porcentajeAprobados ?? 0}% aprobados`}

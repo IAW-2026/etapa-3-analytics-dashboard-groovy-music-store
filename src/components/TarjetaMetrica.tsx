@@ -22,10 +22,12 @@ export default function TarjetaMetrica({ metrica }: { metrica: Metrica }) {
         <p className="text-3xl font-display font-semibold text-foreground tracking-tight">
           {valor}
         </p>
-        <span className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xs font-medium ${estilosTendencia}`}>
-          <Icono size={12} />
-          {Math.abs(variacion)}%
-        </span>
+        {variacion !== 0 && (
+          <span className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-xs font-medium ${estilosTendencia}`}>
+            <Icono size={12} />
+            {Math.abs(variacion)}%
+          </span>
+        )}
       </div>
       {subtitulo && (
         <p className="mt-2 text-xs text-muted-foreground font-serif italic">
