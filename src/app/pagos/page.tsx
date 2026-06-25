@@ -10,7 +10,7 @@ const num = (v: unknown): number | null =>
   typeof v === "number" && !isNaN(v) ? v : null;
 const fmtMoneda = (v: unknown) => {
   const n = num(v);
-  return n === null ? "—" : `$${n.toLocaleString("es-AR")}`;
+  return n === null ? "—" : `$${Math.round(n).toLocaleString("es-AR")}`;
 };
 const fmtNum = (v: unknown) => {
   const n = num(v);
@@ -18,7 +18,7 @@ const fmtNum = (v: unknown) => {
 };
 const fmtPct = (v: unknown) => {
   const n = num(v);
-  return n === null ? "—" : `${n.toFixed(1)}%`;
+  return n === null ? "—" : `${Math.round(n)}%`;
 };
 
 type DatosPagos = {
@@ -38,63 +38,72 @@ export default function PagosPage() {
   const serieFormateada = serieArr.map((p: any) => {
     const fecha = p.fecha ?? p.dia;
     const d = new Date(fecha);
-    const total = (p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0) + (p.fallido ?? 0) + (p.reembolsado ?? 0);
+    const total = p.monto ?? (((p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0) + (p.fallido ?? 0) + (p.reembolsado ?? 0)) || (p.cantidad ?? 0));
     return {
       fecha: `${String(d.getDate()).padStart(2, "0")} ${d.toLocaleString("es-AR", { month: "short" })}`,
-      cantidad: total,
+      cantidad: Math.round(total),
     };
   });
 
   const metricas: Metrica[] = [
     {
       titulo: "Volumen transado",
-      valor: fmtMoneda(resumen?.volumenTotal),
+      valor: fmtMoneda(resumen?.volumenTotal != null ? Math.round(resumen.volumenTotal) : null),
       variacion: 0,
       tendencia: "flat",
       subtitulo: resumen?.totalTransacciones != null
         ? `${resumen.totalTransacciones} transacciones`
-        : "sin datos",
+        : (resumen?.porcentajeAprobados != null
+          ? `${fmtPct(resumen.porcentajeAprobados)} aprobados`
+          : "sin datos"),
     },
     {
       titulo: "Tasa de aprobación",
-      valor: fmtPct(resumen?.porcentajes?.aprobadas),
+      valor: fmtPct(resumen?.porcentajes?.aprobadas ?? resumen?.porcentajeAprobados),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: resumen?.porcentajes?.rechazadas != null
-        ? `${fmtPct(resumen.porcentajes.rechazadas)} rechazadas`
+      subtitulo: (resumen?.porcentajes?.rechazadas ?? resumen?.porcentajeRechazados) != null
+        ? `${fmtPct(resumen.porcentajes?.rechazadas ?? resumen.porcentajeRechazados)} rechazadas`
         : undefined,
     },
     {
       titulo: "Fondos retenidos",
-      valor: fmtMoneda(resumen?.fondos?.retenidos),
+      valor: fmtMoneda(Math.round(resumen?.fondos?.retenidos ?? resumen?.fondosRetenidos ?? 0) || null),
       variacion: 0,
       tendencia: "flat",
       subtitulo: "pendientes de liberación",
     },
     {
       titulo: "Fondos liberados",
-      valor: fmtMoneda(resumen?.fondos?.liberados),
+      valor: fmtMoneda(Math.round(resumen?.fondos?.liberados ?? resumen?.fondosLiberados ?? 0) || null),
       variacion: 0,
       tendencia: "flat",
       subtitulo: "acreditados a vendedores",
     },
   ];
 
-  const porEstado: DistribucionEstado[] = resumen?.transacciones
-    ? [
-        { estado: "Aprobadas", cantidad: resumen.transacciones.aprobadas ?? 0 },
-        { estado: "Pendientes", cantidad: resumen.transacciones.pendientes ?? 0 },
-        { estado: "Rechazadas", cantidad: resumen.transacciones.rechazadas ?? 0 },
-        { estado: "Reembolsadas", cantidad: resumen.transacciones.reembolsadas ?? 0 },
-      ]
-    : [];
+  let porEstado: DistribucionEstado[] = [];
+  if (resumen?.transacciones) {
+    porEstado = [
+      { estado: "Aprobadas", cantidad: resumen.transacciones.aprobadas ?? 0 },
+      { estado: "Pendientes", cantidad: resumen.transacciones.pendientes ?? 0 },
+      { estado: "Rechazadas", cantidad: resumen.transacciones.rechazadas ?? 0 },
+      { estado: "Reembolsadas", cantidad: resumen.transacciones.reembolsadas ?? 0 },
+    ];
+  } else if (resumen?.porcentajeAprobados != null || resumen?.porcentajeRechazados != null) {
+    porEstado = [
+      { estado: "Aprobados", cantidad: resumen.porcentajeAprobados ?? 0 },
+      { estado: "Rechazados", cantidad: resumen.porcentajeRechazados ?? 0 },
+    ];
+  }
 
-  const fondos: DistribucionEstado[] = resumen?.fondos
-    ? [
-        { estado: "Retenidos", cantidad: Math.round(resumen.fondos.retenidos ?? 0) },
-        { estado: "Liberados", cantidad: Math.round(resumen.fondos.liberados ?? 0) },
-      ]
-    : [];
+  const fondos: DistribucionEstado[] =
+    (resumen?.fondos || resumen?.fondosRetenidos != null)
+      ? [
+          { estado: "Retenidos", cantidad: Math.round(resumen.fondos?.retenidos ?? resumen.fondosRetenidos ?? 0) },
+          { estado: "Liberados", cantidad: Math.round(resumen.fondos?.liberados ?? resumen.fondosLiberados ?? 0) },
+        ]
+      : [];
 
   return (
     <main className="min-h-screen bg-background">
@@ -146,7 +155,9 @@ export default function PagosPage() {
               />
               <GraficoDonut
                 titulo="Distribución por estado"
-                subtitulo={`Total: ${fmtNum(resumen?.totalTransacciones)}`}
+                subtitulo={resumen?.totalTransacciones
+                  ? `Total: ${fmtNum(resumen.totalTransacciones)}`
+                  : `${resumen?.porcentajeAprobados ?? 0}% aprobados`}
                 datos={porEstado}
               />
             </div>
@@ -159,8 +170,10 @@ export default function PagosPage() {
                 color="var(--secondary)"
               />
               <GraficoBarras
-                titulo="Transacciones por estado"
-                subtitulo={`Total: ${fmtNum(resumen?.totalTransacciones)}`}
+                titulo="Porcentaje de pagos aprobados"
+                subtitulo={resumen?.totalTransacciones
+                  ? `Total: ${fmtNum(resumen.totalTransacciones)}`
+                  : `${resumen?.porcentajeAprobados ?? 0}% aprobados`}
                 datos={porEstado}
               />
             </div>

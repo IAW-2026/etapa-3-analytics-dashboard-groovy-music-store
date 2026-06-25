@@ -14,7 +14,7 @@ const fmtNum = (v: unknown) => {
 };
 const fmtPct = (v: unknown) => {
   const n = num(v);
-  return n === null ? "—" : `${n.toFixed(1)}%`;
+  return n === null ? "—" : `${Math.round(n)}%`;
 };
 
 type DatosEnvios = {

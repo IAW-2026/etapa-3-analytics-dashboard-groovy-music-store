@@ -79,7 +79,7 @@ export default function Home() {
                 datos={datos.enviosPorEstado}
               />
               <GraficoBarras
-                titulo="Pagos por estado"
+                titulo="Porcentaje de pagos aprobados"
                 subtitulo={`Total: ${datos.pagosPorEstado.reduce((a, b) => a + b.cantidad, 0).toLocaleString("es-AR")}`}
                 datos={datos.pagosPorEstado}
                 color="var(--secondary)"
