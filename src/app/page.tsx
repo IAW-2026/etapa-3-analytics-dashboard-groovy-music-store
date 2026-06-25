@@ -12,15 +12,6 @@ export default function Home() {
     30000
   );
 
-  const ahora = ultimaActualizacion.toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-
   return (
     <main className="min-h-screen bg-background">
       <header className="bg-secondary text-secondary-foreground">
@@ -47,7 +38,7 @@ export default function Home() {
             <p className="text-xs uppercase tracking-[0.2em] text-primary font-display font-medium mb-2">Dashboard</p>
             <h1 className="text-4xl font-serif font-light tracking-tight">Resumen general</h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Vista consolidada del ecosistema · Actualizado {ahora}
+              Vista consolidada del ecosistema · Actualizado {ultimaActualizacion || "cargando..."}
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
