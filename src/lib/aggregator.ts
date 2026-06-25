@@ -93,7 +93,9 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       tendencia: "flat",
       subtitulo: payments?.totalTransacciones != null
         ? `${payments.totalTransacciones} transacciones`
-        : "sin datos",
+        : (payments?.porcentajeAprobados != null
+          ? `${fmtPct(payments.porcentajeAprobados)} aprobados`
+          : "sin datos"),
     },
     {
       titulo: "Órdenes totales",
@@ -109,8 +111,8 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       valor: fmtMoneda(buyer?.ticket_promedio ?? buyer?.ticketPromedio),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: payments?.porcentajes?.aprobadas != null
-        ? `${fmtPct(payments.porcentajes.aprobadas)} pagos aprobados`
+      subtitulo: (payments?.porcentajes?.aprobadas ?? payments?.porcentajeAprobados) != null
+        ? `${fmtPct(payments.porcentajes?.aprobadas ?? payments.porcentajeAprobados)} pagos aprobados`
         : undefined,
     },
     {
@@ -133,10 +135,10 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
   let serieIngresos: PuntoSerie[] = [];
 
   if (seriePaymentsArr.length > 0) {
-    // Payments usa "dia" y tiene columnas por estado (pagado, acreditado, etc.)
     serieIngresos = seriePaymentsArr.map((p: any) => {
       const fecha = p.fecha ?? p.dia;
-      const total = (p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0);
+      // monto (actual) > suma por estados (viejo formato) > cantidad como fallback
+      const total = (p.monto ?? ((p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0))) || (p.cantidad ?? 0);
       return {
         fecha: fmtFecha(fecha),
         ingresos: total,
@@ -163,24 +165,44 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
     : [];
 
   // === Pagos por estado ===
-  const pagosPorEstado: DistribucionEstado[] = payments?.transacciones
-    ? [
-        { estado: "Aprobadas", cantidad: payments.transacciones.aprobadas ?? 0 },
-        { estado: "Pendientes", cantidad: payments.transacciones.pendientes ?? 0 },
-        { estado: "Rechazadas", cantidad: payments.transacciones.rechazadas ?? 0 },
-        { estado: "Reembolsadas", cantidad: payments.transacciones.reembolsadas ?? 0 },
-      ]
-    : [];
+  let pagosPorEstado: DistribucionEstado[] = [];
+  if (payments?.transacciones) {
+    pagosPorEstado = [
+      { estado: "Aprobadas", cantidad: payments.transacciones.aprobadas ?? 0 },
+      { estado: "Pendientes", cantidad: payments.transacciones.pendientes ?? 0 },
+      { estado: "Rechazadas", cantidad: payments.transacciones.rechazadas ?? 0 },
+      { estado: "Reembolsadas", cantidad: payments.transacciones.reembolsadas ?? 0 },
+    ];
+  } else if (payments?.porcentajeAprobados != null || payments?.porcentajeRechazados != null) {
+    // Estructura plana: solo porcentajes
+    pagosPorEstado = [
+      { estado: "Aprobados", cantidad: payments.porcentajeAprobados ?? 0 },
+      { estado: "Rechazados", cantidad: payments.porcentajeRechazados ?? 0 },
+    ];
+  }
 
   // === Top productos (Seller usa snake_case y campos distintos) ===
   const topProductosRaw: any[] = seller?.top_productos ?? seller?.topProductos ?? [];
-  const topProductos: TopProducto[] = topProductosRaw.map((p: any) => ({
-    titulo: p.titulo ?? p.nombre ?? "—",
-    artista: p.artista ?? "—",
-    ventas: p.unidades_vendidas ?? p.ventas ?? 0,
-    ingresos: p.ingresos ?? 0,
-  }));
-  console.log("[aggregator] rSerieBuyer:", JSON.stringify(rSerieBuyer));
+  const precioPromedio = (seller?.total_ventas ?? seller?.totalVentas) > 0
+    ? (seller?.ingresos_brutos ?? seller?.ingresosBrutos ?? 0) / (seller?.total_ventas ?? seller?.totalVentas ?? 1)
+    : 0;
+  const topProductos: TopProducto[] = topProductosRaw.map((p: any) => {
+    const ventas = p.unidades_vendidas ?? p.ventas ?? 0;
+    return {
+      titulo: p.titulo ?? p.nombre ?? "—",
+      artista: p.artista ?? "—",
+      ventas,
+      ingresos: p.ingresos ?? Math.round(ventas * precioPromedio),
+    };
+  });
+  console.log("[aggregator] DATOS CRUDOS:", JSON.stringify({
+    rShipping: rShipping.status === "fulfilled" ? rShipping.value : rShipping.reason?.message,
+    rSeller: rSeller.status === "fulfilled" ? rSeller.value : rSeller.reason?.message,
+    rPayments: rPayments.status === "fulfilled" ? rPayments.value : rPayments.reason?.message,
+    rBuyer: rBuyer.status === "fulfilled" ? rBuyer.value : rBuyer.reason?.message,
+    rSeriePayments: rSeriePayments.status === "fulfilled" ? rSeriePayments.value : rSeriePayments.reason?.message,
+    rSerieBuyer: rSerieBuyer.status === "fulfilled" ? rSerieBuyer.value : rSerieBuyer.reason?.message,
+  }, null, 2));
   /*
   console.log("[aggregator] TODOS LOS DATOS:", JSON.stringify({
     shipping, seller, payments, buyer, seriePaymentsArr, serieBuyerArr,
