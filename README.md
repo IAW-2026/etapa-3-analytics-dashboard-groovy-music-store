@@ -39,3 +39,9 @@ La aplicación está construida con Next.js y no posee una base de datos propia.
 - **Autorización M2M:** Todas las llamadas inter-servicios (`lib/fetcher.ts`) están protegidas. El dashboard genera firmas JWT al vuelo con el payload `{ service: "analytics", role: "INTERNAL" }` para validar su identidad ante las otras APIs.
 - **Cruce e hidratación de datos:** Se realiza enriquecimiento de información en el backend de Next.js antes de enviarla al cliente. Por ejemplo, en `/api/datos-ventas` se cruza el listado de los productos más vendidos con sus precios reales consultados en el catálogo completo para calcular los ingresos exactos.
 - **Componentes y Visualización:** Interfaz implementada con Tailwind CSS y gráficos interactivos desarrollados con la librería `recharts` (Gráficos de área, líneas, barras y donuts).
+
+## Entrega — Etapa 3
+
+- Dashboard de analytics colaborativo: Resumen, Órdenes, Ventas, Pagos, Envíos.
+- Deploy: [URL de producción]
+- Integrantes: Juan Mitzig, Francisco Uyua
