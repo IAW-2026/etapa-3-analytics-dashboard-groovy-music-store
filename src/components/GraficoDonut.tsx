@@ -1,17 +1,13 @@
 "use client";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import type { DistribucionEstado } from "@/lib/types";
 
-export default function GraficoBarras({
-  titulo,
-  subtitulo,
-  datos,
-  color = "var(--primary)",
-}: {
+const COLORES = ["var(--primary)", "var(--ring)", "var(--secondary)", "var(--muted)", "var(--muted-foreground)"];
+
+export default function GraficoDonut({ titulo, subtitulo, datos }: {
   titulo: string;
   subtitulo?: string;
   datos: DistribucionEstado[];
-  color?: string;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
@@ -24,14 +20,16 @@ export default function GraficoBarras({
       {datos.length === 0 ? (
         <p className="text-sm text-muted-foreground py-10 text-center">Sin datos</p>
       ) : (
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={datos} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="estado" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-            <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+        <ResponsiveContainer width="100%" height={250}>
+          <PieChart>
+            <Pie data={datos} dataKey="cantidad" nameKey="estado" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} strokeWidth={0}>
+              {datos.map((_, i) => (
+                <Cell key={i} fill={COLORES[i % COLORES.length]} />
+              ))}
+            </Pie>
             <Tooltip contentStyle={{ border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, backgroundColor: "var(--card)" }} />
-            <Bar dataKey="cantidad" fill={color} radius={[6, 6, 0, 0]} />
-          </BarChart>
+            <Legend verticalAlign="bottom" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+          </PieChart>
         </ResponsiveContainer>
       )}
     </div>

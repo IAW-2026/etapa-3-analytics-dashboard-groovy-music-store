@@ -8,16 +8,13 @@ import type {
   DistribucionEstado,
   TopProducto,
   ResumenShipping,
-  ResumenSeller,
-  ResumenPayments,
-  ResumenBuyer,
   PuntoDiario,
 } from "./types";
 
-function rangoUltimos30Dias(): { desde: string; hasta: string } {
+function rangoPorDefecto(): { desde: string; hasta: string } {
   const hasta = new Date();
   const desde = new Date();
-  desde.setDate(desde.getDate() - 29);
+  desde.setFullYear(desde.getFullYear() - 1);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   return { desde: fmt(desde), hasta: fmt(hasta) };
 }
@@ -31,7 +28,7 @@ const num = (v: unknown): number | null =>
 
 const fmtMoneda = (v: unknown) => {
   const n = num(v);
-  return n === null ? "—" : `$${n.toLocaleString("es-AR")}`;
+  return n === null ? "—" : `$${Math.round(n).toLocaleString("es-AR")}`;
 };
 
 const fmtNum = (v: unknown) => {
@@ -41,7 +38,7 @@ const fmtNum = (v: unknown) => {
 
 const fmtPct = (v: unknown) => {
   const n = num(v);
-  return n === null ? "—" : `${n.toFixed(1)}%`;
+  return n === null ? "—" : `${Math.round(n)}%`;
 };
 
 export type DatosHome = {
@@ -54,9 +51,9 @@ export type DatosHome = {
 };
 
 export async function obtenerDatosHome(): Promise<DatosHome> {
-  const { desde, hasta } = rangoUltimos30Dias();
+  const { desde, hasta } = rangoPorDefecto();
 
-  const [rShipping, rSeller, rPayments, rBuyer, rSeriePayments, rSerieBuyer] =
+  const [rShipping, rSeller, rPayments, rBuyer, rSeriePayments, rSerieBuyer, rProductos] =
     await Promise.allSettled([
       shippingClient.resumen(),
       sellerClient.resumen(),
@@ -64,18 +61,33 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       buyerClient.resumen(),
       paymentsClient.porDia(desde, hasta),
       buyerClient.porDia(desde, hasta),
+      sellerClient.productos(),
     ]);
 
+  // Los datos pueden venir wrapeados en { datos: ... } o directo
   const shipping = ok<ResumenShipping>(rShipping);
-  const seller = ok<ResumenSeller>(rSeller);
-  const payments = ok<ResumenPayments>(rPayments);
-  const buyer = ok<ResumenBuyer>(rBuyer);
-  const seriePayments = ok<PuntoDiario[]>(rSeriePayments);
-  const serieBuyer = ok<PuntoDiario[]>(rSerieBuyer);
+  const sellerRaw = ok<any>(rSeller);
+  const paymentsRaw = ok<any>(rPayments);
+  const buyerRaw = ok<any>(rBuyer);
+  const seriePaymentsRaw = ok<any>(rSeriePayments);
+  const serieBuyerRaw = ok<any>(rSerieBuyer);
+  const productosRaw = ok<any>(rProductos);
 
-  // Debug
-  console.log("[aggregator] shipping error:", rShipping.status === "rejected" ? rShipping.reason : "ok");
-  console.log("[aggregator] seller error:", rSeller.status === "rejected" ? rSeller.reason : "ok");
+  // Desenvolver si viene en { datos: ... }
+  const seller = sellerRaw?.datos ?? sellerRaw;
+  const payments = paymentsRaw?.datos ?? paymentsRaw;
+  const buyer = buyerRaw?.datos ?? buyerRaw;
+  const seriePaymentsArr: any[] = seriePaymentsRaw?.datos ?? (Array.isArray(seriePaymentsRaw) ? seriePaymentsRaw : []);
+  const serieBuyerArr: any[] = serieBuyerRaw?.datos ?? (Array.isArray(serieBuyerRaw) ? serieBuyerRaw : []);
+
+  // Mapa de precios reales desde GET /api/products
+  const productosArr: any[] = productosRaw?.datos ?? (Array.isArray(productosRaw) ? productosRaw : []);
+  const preciosPorId: Record<string, number> = {};
+  for (const p of productosArr) {
+    if (p.id && typeof p.precio === "number") {
+      preciosPorId[p.id] = p.precio;
+    }
+  }
 
   const errores: string[] = [];
   if (!shipping) errores.push("shipping");
@@ -92,27 +104,29 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       tendencia: "flat",
       subtitulo: payments?.totalTransacciones != null
         ? `${payments.totalTransacciones} transacciones`
-        : "sin datos",
+        : (payments?.porcentajeAprobados != null
+          ? `${fmtPct(payments.porcentajeAprobados)} aprobados`
+          : "sin datos"),
     },
     {
       titulo: "Órdenes totales",
-      valor: fmtNum(buyer?.total_ordenes),
+      valor: fmtNum(buyer?.total_ordenes ?? buyer?.totalOrdenes),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: buyer?.usuarios_activos != null
-        ? `${fmtNum(buyer.usuarios_activos)} usuarios activos`
+      subtitulo: (buyer?.usuarios_activos ?? buyer?.usuariosActivos) != null
+        ? `${fmtNum(buyer.usuarios_activos ?? buyer.usuariosActivos)} usuarios activos`
         : "sin datos",
     },
     {
       titulo: "Ticket promedio",
-      valor: fmtMoneda(buyer?.ticket_promedio),
+      valor: fmtMoneda(buyer?.ticket_promedio ?? buyer?.ticketPromedio),
       variacion: 0,
       tendencia: "flat",
-      subtitulo: payments?.porcentajes?.aprobadas != null
-        ? `${fmtPct(payments.porcentajes.aprobadas)} pagos aprobados`
+      subtitulo: (payments?.porcentajes?.aprobadas ?? payments?.porcentajeAprobados) != null
+        ? `${fmtPct(payments.porcentajes?.aprobadas ?? payments.porcentajeAprobados)} pagos aprobados`
         : undefined,
     },
-{
+    {
       titulo: "Envíos entregados",
       valor: fmtPct(shipping?.porcentajeEntregados),
       variacion: 0,
@@ -123,23 +137,33 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
     },
   ];
 
-  // === Serie de ingresos ===
+  // === Serie de ingresos diarios ===
   const fmtFecha = (iso: string) => {
     const d = new Date(iso);
     return `${String(d.getDate()).padStart(2, "0")} ${d.toLocaleString("es-AR", { month: "short" })}`;
   };
 
   let serieIngresos: PuntoSerie[] = [];
-  if (seriePayments && seriePayments.length > 0) {
-    serieIngresos = seriePayments.map((p) => ({
-      fecha: fmtFecha(p.fecha),
-      ingresos: p.monto ?? p.cantidad,
-    }));
-  } else if (serieBuyer && buyer?.ticket_promedio != null) {
-    serieIngresos = serieBuyer.map((p) => ({
-      fecha: fmtFecha(p.fecha),
-      ingresos: p.cantidad * buyer.ticket_promedio,
-    }));
+
+  if (seriePaymentsArr.length > 0) {
+    serieIngresos = seriePaymentsArr.map((p: any) => {
+      const fecha = p.fecha ?? p.dia;
+      // monto (actual) > suma por estados (viejo formato) > cantidad como fallback
+      const total = (p.monto ?? ((p.pagado ?? 0) + (p.acreditado ?? 0) + (p.pendiente ?? 0))) || (p.cantidad ?? 0);
+      return {
+        fecha: fmtFecha(fecha),
+        ingresos: total,
+      };
+    });
+  } else if (serieBuyerArr.length > 0) {
+    // Buyer puede usar ingresos o volumen_transacciones
+    serieIngresos = serieBuyerArr.map((p: any) => {
+      const fecha = p.fecha ?? p.dia;
+      return {
+        fecha: fmtFecha(fecha),
+        ingresos: p.ingresos ?? p.volumen_transacciones ?? p.cantidad ?? 0,
+      };
+    });
   }
 
   // === Envíos por estado ===
@@ -151,19 +175,50 @@ export async function obtenerDatosHome(): Promise<DatosHome> {
       ]
     : [];
 
-  // === Pagos por estado (ahora con datos reales de payments.transacciones) ===
-  const pagosPorEstado: DistribucionEstado[] = payments?.transacciones
-    ? [
-        { estado: "Aprobadas", cantidad: payments.transacciones.aprobadas ?? 0 },
-        { estado: "Pendientes", cantidad: payments.transacciones.pendientes ?? 0 },
-        { estado: "Rechazadas", cantidad: payments.transacciones.rechazadas ?? 0 },
-        { estado: "Reembolsadas", cantidad: payments.transacciones.reembolsadas ?? 0 },
-      ]
-    : [];
+  // === Pagos por estado ===
+  let pagosPorEstado: DistribucionEstado[] = [];
+  if (payments?.transacciones) {
+    pagosPorEstado = [
+      { estado: "Aprobadas", cantidad: payments.transacciones.aprobadas ?? 0 },
+      { estado: "Pendientes", cantidad: payments.transacciones.pendientes ?? 0 },
+      { estado: "Rechazadas", cantidad: payments.transacciones.rechazadas ?? 0 },
+      { estado: "Reembolsadas", cantidad: payments.transacciones.reembolsadas ?? 0 },
+    ];
+  } else if (payments?.porcentajeAprobados != null || payments?.porcentajeRechazados != null) {
+    // Estructura plana: solo porcentajes
+    pagosPorEstado = [
+      { estado: "Aprobados", cantidad: payments.porcentajeAprobados ?? 0 },
+      { estado: "Rechazados", cantidad: payments.porcentajeRechazados ?? 0 },
+    ];
+  }
 
-  // === Top productos ===
-  const topProductos: TopProducto[] = seller?.topProductos ?? [];
-
+  // === Top productos: cruzar IDs con catálogo real para precios ===
+  const topProductosRaw: any[] = seller?.top_productos ?? seller?.topProductos ?? [];
+  const topProductos: TopProducto[] = topProductosRaw.map((p: any) => {
+    const ventas = p.unidades_vendidas ?? p.ventas ?? 0;
+    const precioReal = p.id ? preciosPorId[p.id] : undefined;
+    return {
+      titulo: p.titulo ?? p.nombre ?? "—",
+      artista: p.artista ?? "—",
+      ventas,
+      ingresos: p.ingresos ?? (precioReal != null ? ventas * precioReal : 0),
+    };
+  });
+  console.log("[aggregator] DATOS CRUDOS:", JSON.stringify({
+    rShipping: rShipping.status === "fulfilled" ? rShipping.value : rShipping.reason?.message,
+    rSeller: rSeller.status === "fulfilled" ? rSeller.value : rSeller.reason?.message,
+    rPayments: rPayments.status === "fulfilled" ? rPayments.value : rPayments.reason?.message,
+    rBuyer: rBuyer.status === "fulfilled" ? rBuyer.value : rBuyer.reason?.message,
+    rSeriePayments: rSeriePayments.status === "fulfilled" ? rSeriePayments.value : rSeriePayments.reason?.message,
+    rSerieBuyer: rSerieBuyer.status === "fulfilled" ? rSerieBuyer.value : rSerieBuyer.reason?.message,
+    rProductos: rProductos.status === "fulfilled" ? `${productosArr.length} productos` : rProductos.reason?.message,
+    preciosCruzados: topProductos.map(p => `${p.titulo}: ${p.ventas}u × $${p.ingresos / (p.ventas || 1)} = $${p.ingresos}`),
+  }, null, 2));
+  /*
+  console.log("[aggregator] TODOS LOS DATOS:", JSON.stringify({
+    shipping, seller, payments, buyer, seriePaymentsArr, serieBuyerArr,
+  }, null, 2));
+*/
   return {
     metricas,
     serieIngresos,
