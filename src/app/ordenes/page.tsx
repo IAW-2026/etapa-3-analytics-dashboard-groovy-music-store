@@ -81,11 +81,11 @@ export default function OrdenesPage() {
             <span className="font-display font-semibold tracking-tight">Groovy Analytics</span>
           </div>
           <nav className="flex items-center gap-6 text-sm">
-            <a href="/" className="hover:text-primary transition-colors">Resumen</a>
-            <a href="/ordenes" className="text-primary font-medium">Órdenes</a>
-            <a href="/ventas" className="hover:text-primary transition-colors">Ventas</a>
-            <a href="/pagos" className="hover:text-primary transition-colors">Pagos</a>
-            <a href="/envios" className="hover:text-primary transition-colors">Envíos</a>
+            <a href="/" className="hover:text-white/80 transition-colors">Resumen</a>
+            <a href="/ordenes" className="text-white font-medium underline decoration-primary decoration-2 underline-offset-4">Órdenes</a>
+            <a href="/ventas" className="hover:text-white/80 transition-colors">Ventas</a>
+            <a href="/pagos" className="hover:text-white/80 transition-colors">Pagos</a>
+            <a href="/envios" className="hover:text-white/80 transition-colors">Envíos</a>
           </nav>
         </div>
       </header>

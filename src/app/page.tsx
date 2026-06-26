@@ -23,11 +23,11 @@ export default function Home() {
             <span className="font-display font-semibold tracking-tight">Groovy Analytics</span>
           </div>
           <nav className="flex items-center gap-6 text-sm">
-            <a href="/" className="text-primary font-medium">Resumen</a>
-            <a href="/ordenes" className="hover:text-primary transition-colors">Órdenes</a>
-            <a href="/ventas" className="hover:text-primary transition-colors">Ventas</a>
-            <a href="/pagos" className="hover:text-primary transition-colors">Pagos</a>
-            <a href="/envios" className="hover:text-primary transition-colors">Envíos</a>
+            <a href="/" className="text-white font-medium underline decoration-primary decoration-2 underline-offset-4">Resumen</a>
+            <a href="/ordenes" className="hover:text-white/80 transition-colors">Órdenes</a>
+            <a href="/ventas" className="hover:text-white/80 transition-colors">Ventas</a>
+            <a href="/pagos" className="hover:text-white/80 transition-colors">Pagos</a>
+            <a href="/envios" className="hover:text-white/80 transition-colors">Envíos</a>
           </nav>
         </div>
       </header>
@@ -79,7 +79,7 @@ export default function Home() {
                 datos={datos.enviosPorEstado}
               />
               <GraficoBarras
-                titulo="Porcentaje de pagos aprobados"
+                titulo="Pagos por estado"
                 subtitulo={`Total: ${datos.pagosPorEstado.reduce((a, b) => a + b.cantidad, 0).toLocaleString("es-AR")}`}
                 datos={datos.pagosPorEstado}
                 color="var(--secondary)"

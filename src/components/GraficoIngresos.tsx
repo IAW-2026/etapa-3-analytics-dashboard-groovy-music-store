@@ -6,7 +6,7 @@ export default function GraficoIngresos({ datos }: { datos: PuntoSerie[] }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="mb-5">
-        <h3 className="text-base font-display font-semibold text-foreground">Ingresos diarios</h3>
+        <h2 className="text-base font-display font-semibold text-foreground">Ingresos diarios</h2>
         <p className="text-xs text-muted-foreground mt-0.5 font-serif italic">Últimos 30 días</p>
       </div>
       {datos.length === 0 ? (

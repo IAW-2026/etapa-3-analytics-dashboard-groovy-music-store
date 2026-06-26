@@ -4,9 +4,9 @@ export default function TopProductos({ productos }: { productos: TopProducto[] }
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
       <div className="mb-5">
-        <h3 className="text-base font-[family-name:var(--font-syne)] font-semibold text-[var(--foreground)]">
+        <h2 className="text-base font-[family-name:var(--font-syne)] font-semibold text-[var(--foreground)]">
           Top productos
-        </h3>
+        </h2>
         <p className="text-xs text-[var(--muted-foreground)] mt-0.5 font-[family-name:var(--font-cormorant)] italic">
           Más vendidos del mes
         </p>

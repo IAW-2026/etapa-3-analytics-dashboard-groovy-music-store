@@ -16,7 +16,7 @@ export default function GraficoBarras({
   return (
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="mb-5">
-        <h3 className="text-base font-display font-semibold text-foreground">{titulo}</h3>
+        <h2 className="text-base font-display font-semibold text-foreground">{titulo}</h2>
         {subtitulo && (
           <p className="text-xs text-muted-foreground mt-0.5 font-serif italic">{subtitulo}</p>
         )}
