@@ -43,5 +43,5 @@ La aplicación está construida con Next.js y no posee una base de datos propia.
 ## Entrega — Etapa 3
 
 - Dashboard de analytics colaborativo: Resumen, Órdenes, Ventas, Pagos, Envíos.
-- Deploy: [URL de producción]
-- Integrantes: Juan Mitzig, Francisco Uyua
+- Deploy: https://etapa-3-analytics-dashboard-groovy.vercel.app/
+- Integrantes: Juan Francisco Mitzig, Francisco Uyua , Ana Paula Negrin , Juan Manuel Cristobo 
